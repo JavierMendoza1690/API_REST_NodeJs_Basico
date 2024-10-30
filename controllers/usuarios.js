@@ -1,35 +1,79 @@
 const { respoonse, request } = require("express");
+const bcryptjs = require("bcryptjs");
+("express-validator");
 
-const usuariosGET = (req = request, res = response) => {
+const Usuario = require("../models/usuario");
+const { emailExiste } = require("../helpers/db-validators");
 
-  const {q, nombre = 'No name', apikey} = req.query
+
+
+
+
+const usuariosGET = async (req = request, res = response) => {
+
+  const { limite = 5, desde = 0 } = req.query;
+  const query = {estado: true};
+  
+  // const usuarios = await Usuario.find( query )
+  //     .skip(desde)
+  //     .limit(limite);
+
+
+  // const total = await Usuario.countDocuments( query );
+
+
+   const [total, usuarios] = await Promise.all([
+    Usuario.countDocuments( query ),
+    Usuario.find( query )
+      .skip(desde)
+      .limit(limite)
+  ])
+ 
+  
 
   res.json({
-    msj: "get API - controlador",
-    q,
-    nombre,
-    apikey
+    total,
+    usuarios,
   });
 };
 
-const usuariosPUT = (req, res) => {
 
+
+
+
+const usuariosPUT = async (req, res) => {
+  // ENCRIPTAR CONTRASEÑA
   const { id } = req.params;
+  const { _id, password, google, correo, ...resto } = req.body;
 
-  res.json({
-    msj: "put API - controlador",
-    id
-  });
+  // TODO validar contra base de datos
+  if (password) {
+    // ENCRIPTAR CONTRASEÑA
+    const salt = bcryptjs.genSaltSync(10);
+    resto.password = bcryptjs.hashSync(password, salt);
+  }
+
+  const usuario = await Usuario.findByIdAndUpdate(id, resto);
+
+  res.json(usuario);
 };
 
-const usuariosPOST = (req, res) => {
+const usuariosPOST = async (req, res) => {
+  // Validando Errores
 
-  const {nombre, edad} = req.body;
+  const { nombre, correo, password, rol } = req.body;
+  const usuario = new Usuario({ nombre, correo, password, rol });
+
+  // Encriptar la constraseña
+  const salt = bcryptjs.genSaltSync(10);
+  usuario.password = bcryptjs.hashSync(password, salt);
+
+  // Guardar en BD
+
+  await usuario.save();
 
   res.json({
-    msj: "post API - controlador",
-    nombre,
-    edad
+    usuario,
   });
 };
 
